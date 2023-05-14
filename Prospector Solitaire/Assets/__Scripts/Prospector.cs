@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -19,7 +19,9 @@ public class Prospector : MonoBehaviour
     public Vector2 fsPosMid2 = new Vector2(0.4f, 1.0f);
     public Vector2 fsPosEnd = new Vector2(0.5f, 0.95f);
     public float reloadDelay = 2f; // Задержка между раундами 2 секунды
-    public Text gameOverText, roundResultText, highScoreText;
+    public Text gameOverText, roundResultText, highScoreText, roundLevelText;
+    public Sprite cardFrontGold;
+    public Sprite cardBackGold;
 
     [Header("Set Dynamically")]
     public Deck deck;
@@ -30,8 +32,25 @@ public class Prospector : MonoBehaviour
     public List<CardProspector> tableau;
     public List<CardProspector> discardPile;
     public FloatingScore fsRun;
+    public CardProspector lastMove;
 
-    private void Awake()
+    [Header("Set Dynamically: Bonuses")]
+    public GameObject BombToggle;
+    public bool isBombActive = false;
+    static public bool isBombEnable = true;
+    static public int NUM_BOMB = 1;
+    public GameObject makeGold;
+    public bool isMakeGoldActive = false;
+    static public bool isMakeGoldEnable = true;
+    static public int NUM_MAKEGOLD = 1;
+    public Button BonusUndo;
+    public bool moveFromDrawpile = false;
+    public bool moveFromTableau = false;
+    public Vector3 lastMovePosition;
+    public bool wasUndo = false;
+    static public bool wasUndoFs = false;
+
+    void Awake()
     {
         S = this; // Подготовка объекта-одиночки Prospector
         SetUpUITexts();
@@ -41,26 +60,41 @@ public class Prospector : MonoBehaviour
     {
         // Настроить объект HighScore
         GameObject go = GameObject.Find("HighScore");
-        if(go != null)
+        if (go != null)
         {
             highScoreText = go.GetComponent<Text>();
         }
-        int highScore = ScoreManager.HIGH_SCORE;
-        string hScore = "High Score: " + Utils.AddCommasToNumber(highScore);
-        go.GetComponent<Text>().text = hScore;
+        int highScore = ScoreManager.UpdateHighScore();
+        go.GetComponent<Text>().text = $"High Score: {highScore.ToString()}";
 
         // Настроить надписи, отображаемые в конце раунда
         go = GameObject.Find("GameOver");
-        if(go != null)
+        if (go != null)
         {
             gameOverText = go.GetComponent<Text>();
         }
 
         go = GameObject.Find("RoundResult");
-        if(go != null)
+        if (go != null)
         {
             roundResultText = go.GetComponent<Text>();
         }
+
+        // Настроить отображение текущего раунда
+        go = GameObject.Find("RoundLevel");
+        if (go != null)
+        {
+            roundLevelText = go.GetComponent<Text>();
+        }
+        int roundLevel = ScoreManager.ROUND_LEVEL;
+        string currentLevel = "Round " + Utils.AddCommasToNumber(roundLevel);
+        go.GetComponent<Text>().text = currentLevel;
+
+        // Настроить отображение доступных бонусов
+        // "Бомба"
+        go = GameObject.Find("BombNum");
+        // "Золотая карта"
+        go = GameObject.Find("MakeGoldNum");
 
         // Скрыть надписи
         ShowResultsUI(false);
@@ -72,27 +106,57 @@ public class Prospector : MonoBehaviour
         roundResultText.gameObject.SetActive(show);
     }
 
-    private void Start()
+    void Start()
     {
         ScoreBoard.S.score = ScoreManager.SCORE;
 
         deck = GetComponent<Deck>(); // получить компонент Deck
         deck.InitDeck(deckXML.text); // передать ему DeckXML
         Deck.Shuffle(ref deck.cards); // перемешать колоду, передав ее по ссылке
-
-        /*
-        Card c;
-        for(int cNum=0; cNum<deck.cards.Count; cNum++)
+        for (int i = 0; i < deck.cards.Count; i++)
         {
-            c = deck.cards[cNum];
-            c.transform.position = new Vector3((cNum % 13) * 3, cNum / 13 * 4, 0);
+            if (deck.cards[i].isGold)
+            {
+                if (deck.cards[i].faceUp == true)
+                {
+                    deck.cards[i].GetComponent<SpriteRenderer>().sprite = cardFrontGold;
+                }
+                else if (deck.cards[i].faceUp == false)
+                {
+                    deck.cards[i].GetComponent<SpriteRenderer>().sprite = cardBackGold;
+                }
+            }
         }
-        */
 
         layout = GetComponent<Layout>(); // получить компонент Layout
         layout.ReadLayout(layoutXML.text); // передать ему содержимое LayoutXML
         drawPile = ConvertListCardsToListCardProspectors(deck.cards);
         LayoutGame();
+
+        // Активировать бонусы
+        // Бонус "Бомба" уничтожает любую открытую карту, продолжая активную цепочку
+        BombToggle = GameObject.Find("Bomb");
+        if (ScoreManager.ROUND_LEVEL > 1 & NUM_BOMB < 1)
+        {
+            BombToggle.SetActive(false);
+        }
+        else if (ScoreManager.ROUND_LEVEL > 1 & NUM_BOMB >= 1)
+        {
+            BombToggle.SetActive(true);
+        }
+        // Бонус "Золотая карта" превращает выбранную открытую карту (обычную) в золотую
+        makeGold = GameObject.Find("MakeGold");
+        if (ScoreManager.ROUND_LEVEL > 1 & NUM_MAKEGOLD < 1)
+        {
+            makeGold.SetActive(false);
+        }
+        else if (ScoreManager.ROUND_LEVEL > 1 & NUM_MAKEGOLD >= 1)
+        {
+            makeGold.SetActive(true);
+        }
+        // Бонус "Отмена" позволяет вернуть последний ход
+        Button undo = BonusUndo.GetComponent<Button>();
+        undo.onClick.AddListener(Undo);
     }
 
     List<CardProspector> ConvertListCardsToListCardProspectors(List<Card> lCD)
@@ -145,6 +209,7 @@ public class Prospector : MonoBehaviour
             // Установить localPosition карты в соответствии с определением в SlotDef
             cp.layoutID = tSD.id;
             cp.slotDef = tSD;
+
             // Карты CardProspector в основной раскладке имеют состояние CardState.tableau
             cp.state = eCardState.tableau;
             cp.SetSortingLayerName(tSD.layerName); // назначить слой сортировки
@@ -152,9 +217,9 @@ public class Prospector : MonoBehaviour
         }
 
         // Настроить списки карт, мешающих перевернуть данную
-        foreach(CardProspector tCP in tableau)
+        foreach (CardProspector tCP in tableau)
         {
-            foreach(int hid in tCP.slotDef.hiddenBy)
+            foreach (int hid in tCP.slotDef.hiddenBy)
             {
                 cp = FindCardByLayoutID(hid);
                 tCP.hiddenBy.Add(cp);
@@ -174,7 +239,7 @@ public class Prospector : MonoBehaviour
         foreach (CardProspector tCP in tableau)
         {
             // Поиск по всем картам в списке tableau
-            if(tCP.layoutID == layoutID)
+            if (tCP.layoutID == layoutID)
             {
                 // Если номер слота карты совпадает с искомым, вернуть ее
                 return (tCP);
@@ -187,14 +252,14 @@ public class Prospector : MonoBehaviour
     // Поворачивает карты в основной раскладке лицевой стороной вверх или вниз
     void SetTableauFaces()
     {
-        foreach(CardProspector cd in tableau)
+        foreach (CardProspector cd in tableau)
         {
             bool faceUp = true; // предположить, что карта должна быть повернута
-                                 // лицевой стороной вверх
-            foreach(CardProspector cover in cd.hiddenBy)
+                                // лицевой стороной вверх
+            foreach (CardProspector cover in cd.hiddenBy)
             {
                 // Если любая из карт, перекрывающих текущую, присутствует в основной раскладке
-                if(cover.state == eCardState.tableau)
+                if (cover.state == eCardState.tableau)
                 {
                     faceUp = false; // повернуть лицевой стороной вниз
                 }
@@ -225,9 +290,19 @@ public class Prospector : MonoBehaviour
     // Делает карту cd новой целевой картой
     void MoveToTarget(CardProspector cd)
     {
-        // Если целевая карта существует, переместить ее в стопку сброшенных карт
-        if (target != null) MoveToDiscard(target);
-        target = cd; // cd - новая целевая карта
+        if (wasUndo)
+        {
+            target = null;
+            target = discardPile[discardPile.Count - 1];
+            discardPile.RemoveAt(discardPile.Count - 1);
+            wasUndo = false;
+        }
+        else
+        {
+            // Если целевая карта существует, переместить ее в стопку сброшенных карт
+            if (target != null) MoveToDiscard(target);
+            target = cd; // cd - новая целевая карта
+        }
         cd.state = eCardState.target;
         cd.transform.parent = layoutAnchor;
 
@@ -247,11 +322,10 @@ public class Prospector : MonoBehaviour
     {
         CardProspector cd;
         // Выполнить обход всех карт в drawPile
-        for(int i=0; i<drawPile.Count; i++)
+        for (int i = 0; i < drawPile.Count; i++)
         {
             cd = drawPile[i];
             cd.transform.parent = layoutAnchor;
-
             // Расположить с учетом смещения layout.drawPile.stagger
             Vector2 dpStagger = layout.drawPile.stagger;
             cd.transform.localPosition = new Vector3(
@@ -281,6 +355,12 @@ public class Prospector : MonoBehaviour
                 // целевой карты
                 MoveToDiscard(target); // переместить целевую карту в discardPile
                 MoveToTarget(Draw()); // переместить верхнюю свободную карту на место целевой
+
+                lastMove = cd;
+                lastMovePosition = lastMove.transform.localPosition;
+                moveFromDrawpile = true;
+                moveFromTableau = false;
+
                 UpdateDrawPile();
                 ScoreManager.EVENT(eScoreEvent.draw);
                 FloatingScoreHandler(eScoreEvent.draw);
@@ -295,18 +375,45 @@ public class Prospector : MonoBehaviour
                     // Карта, повернутая лицевой стороной вниз, не может перемещаться
                     validMatch = false;
                 }
-                if(!AbjacentRank(cd, target))
+                if (!AbjacentRank(cd, target))
                 {
                     // Если правило старшинства не соблюдается, карта не может перемещаться
                     validMatch = false;
                 }
+                // Активация механики бонусов, влияющих на игровой процесс
+                // "Бомба"
+                if (BombToggle.GetComponent<Toggle>().isOn && cd.faceUp)
+                {
+                    isBombActive = true;
+                    validMatch = true;
+                    if (NUM_BOMB > 1)
+                    {
+                        NUM_BOMB--;
+                        gameObject.SendMessage("SetUpUITexts", NUM_BOMB);
+                        isBombActive = false;
+                        print("Bombs available: " + NUM_BOMB);
+                    }
+                    else
+                    {
+                        isBombEnable = false;
+                        BombToggle.SetActive(false);
+                    }
+                    BombToggle.GetComponent<Toggle>().isOn = false;
+                }
+                // "Золотая карта"
+                BonusMakeGold(cd, validMatch);
                 if (!validMatch) return; // выйти, если карта не может перемещаться
+
+                lastMove = cd;
+                lastMovePosition = lastMove.transform.localPosition;
+                moveFromDrawpile = false;
+                moveFromTableau = true;
 
                 tableau.Remove(cd); // удалить из списка tableau
                 MoveToTarget(cd); // сделать эту карту целевой
                 SetTableauFaces(); // повернуть карты в основной раскладке лицевой стороной
                                    // вниз или вверх
-                
+
                 if (cd.isGold)
                 {
                     ScoreManager.EVENT(eScoreEvent.mineGold);
@@ -317,7 +424,6 @@ public class Prospector : MonoBehaviour
                     ScoreManager.EVENT(eScoreEvent.mine);
                     FloatingScoreHandler(eScoreEvent.mine);
                 }
-                //FloatingScoreHandler(eScoreEvent.mine);
                 break;
         }
 
@@ -325,11 +431,85 @@ public class Prospector : MonoBehaviour
         CheckForGameOver();
     }
 
+    // Бонус "Золотая карта" превращает любую открытую карту в золотую
+    void BonusMakeGold(CardProspector cd, bool validMatch)
+    {
+        if (makeGold.GetComponent<Toggle>().isOn)
+        {
+            isMakeGoldActive = true;
+            validMatch = false;
+            if (cd.faceUp)
+            {
+                if (cd.isGold) return;
+                cd.GetComponent<SpriteRenderer>().sprite = cardFrontGold;
+                cd.isGold = true;
+            }
+            else if (!cd.faceUp)
+            {
+                return;
+            }
+            if (NUM_MAKEGOLD > 1)
+            {
+                NUM_MAKEGOLD--;
+                gameObject.SendMessage("SetUpUITexts", NUM_MAKEGOLD);
+                isMakeGoldActive = false;
+                print("Gold Boosters available: " + NUM_MAKEGOLD);
+            }
+            else
+            {
+                isMakeGoldEnable = false;
+                makeGold.SetActive(false);
+            }
+            makeGold.GetComponent<Toggle>().isOn = false;
+        }
+    }
+
+    // Undo позволяет отменить предыдущий ход
+    public void Undo()
+    {
+        CardProspector cd;
+        // Взять верхнюю карту из сброса
+        cd = discardPile[discardPile.Count - 1];
+        // Если карта была перемещена из основной раскладки
+        if (moveFromTableau)
+        {
+            wasUndo = true;
+
+            lastMove.state = eCardState.tableau;
+            lastMove.transform.parent = layoutAnchor;
+            tableau.Insert(0, lastMove);
+            lastMove.transform.localPosition = lastMovePosition;
+            lastMove = null;
+
+            moveFromTableau = false;
+            MoveToTarget(cd);
+            SetTableauFaces();
+        }
+        // Если карта была перемещена из колоды свободных карт
+        if (moveFromDrawpile)
+        {
+            wasUndo = true;
+
+            lastMove.state = eCardState.drawpile;
+            lastMove.transform.parent = layoutAnchor;
+            drawPile.Insert(0, lastMove);
+            lastMove.transform.localPosition = lastMovePosition;
+            lastMove = null;
+
+            moveFromDrawpile = false;
+            MoveToTarget(cd);
+            UpdateDrawPile();
+        }
+        wasUndoFs = true;
+        ScoreManager.EVENT(eScoreEvent.undo);
+        FloatingScoreHandler(eScoreEvent.undo);
+    }
+
     // Проверяет завершение игры
     void CheckForGameOver()
     {
         // Если основная раскладка опустела, игра завершена
-        if(tableau.Count == 0)
+        if (tableau.Count == 0)
         {
             // Вызвать GameOver() с признаком победы
             GameOver(true);
@@ -340,14 +520,17 @@ public class Prospector : MonoBehaviour
         if (drawPile.Count > 0) return;
 
         // Проверить наличие допустимых ходов
-        foreach(CardProspector cd in tableau)
+        foreach (CardProspector cd in tableau)
         {
-            if(AbjacentRank(cd, target))
+            if (AbjacentRank(cd, target))
             {
                 // Если есть допустимый ход, игра не завершилась
                 return;
             }
         }
+
+        // Если свободных карт нет, в основной раскладке осталась одна карта и доступна бомба, дать возможность ее использовать
+        if (drawPile.Count == 0 & tableau.Count == 1 & isBombEnable) return;
 
         // Так как допустимых ходов нет, игра завершилась
         // Вызвать GameOver с признаком проигрыша
@@ -357,21 +540,27 @@ public class Prospector : MonoBehaviour
     // Вызывается, когда игра завершилась
     void GameOver(bool won)
     {
+        int scoreBonus = drawPile.Count * 10;
+        ScoreManager.SCORE_BONUS = scoreBonus;
         int score = ScoreManager.SCORE;
         if (fsRun != null) score += fsRun.score;
         if (won)
         {
             gameOverText.text = "Round Over";
-            roundResultText.text = "You won this round!\nRound Score: " + score;
+            roundResultText.text = "You won this round!\nRound Score: " + score + "\nBonus for remaining cards: " + scoreBonus;
             ShowResultsUI(true);
-            //print("Game Over. You won!");
             ScoreManager.EVENT(eScoreEvent.gameWin);
             FloatingScoreHandler(eScoreEvent.gameWin);
+            ScoreManager.ROUND_LEVEL++;
+            print("Current Round: " + ScoreManager.ROUND_LEVEL);
+            // Обновить бонусы
+            if (NUM_BOMB == 0) NUM_BOMB++;
+            if (NUM_MAKEGOLD == 0) NUM_MAKEGOLD++;
         }
         else
         {
             gameOverText.text = "Game Over";
-            if(ScoreManager.HIGH_SCORE <= score)
+            if (ScoreManager.HIGH_SCORE <= score)
             {
                 string str = "You got the high score!\nHigh score: " + score;
                 roundResultText.text = str;
@@ -380,10 +569,12 @@ public class Prospector : MonoBehaviour
             {
                 roundResultText.text = "Your final score was: " + score;
             }
+            ScoreManager.ROUND_LEVEL = 1;
             ShowResultsUI(true);
-            //print("Game Over. You Lost.");
             ScoreManager.EVENT(eScoreEvent.gameLoss);
             FloatingScoreHandler(eScoreEvent.gameLoss);
+            NUM_BOMB = 1;
+            NUM_MAKEGOLD = 1;
         }
         // Перезагрузить сцену и сбросить игру в исходное состояние
         // SceneManager.LoadScene("__Prospector_Scene_0");
@@ -397,6 +588,12 @@ public class Prospector : MonoBehaviour
     {
         // Перезагрузить сцену и сбросить игру в исходное состояние
         SceneManager.LoadScene("__Prospector_Scene_0");
+    }
+
+    public void ReloadGame()
+    {
+        ScoreManager.ROUND_LEVEL = 1;
+        ReloadLevel();
     }
 
     // Возвращает true, если две карты соответствуют правилу старшинства (с учетом
@@ -427,10 +624,11 @@ public class Prospector : MonoBehaviour
             // В случае победы, проигрыша или завершения хода выполняются
             // одни и те же действия
             case eScoreEvent.draw: // Выбор свободной карты
+            case eScoreEvent.undo:
             case eScoreEvent.gameWin: // Победа в раунде
             case eScoreEvent.gameLoss: // Проигрыш в раунде
                 // Добавить fsRun в Scoreboard
-                if(fsRun != null)
+                if (fsRun != null)
                 {
                     // Создать точки для кривой Безье
                     fsPts = new List<Vector2>();
@@ -458,7 +656,7 @@ public class Prospector : MonoBehaviour
                 fsPts.Add(fsPosRun);
                 fs = ScoreBoard.S.CreateFloatingScore(ScoreManager.CHAIN, fsPts);
                 fs.fontSizes = new List<float>(new float[] { 4, 50, 42 });
-                if(fsRun == null)
+                if (fsRun == null)
                 {
                     fsRun = fs;
                     fsRun.reportFinishTo = null;

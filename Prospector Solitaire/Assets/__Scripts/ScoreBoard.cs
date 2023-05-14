@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -31,7 +31,7 @@ public class ScoreBoard : MonoBehaviour
     // Свойство scoreString также устанавливает Text.text
     public string scoreString
     {
-        get { return(_scoreString); }
+        get { return (_scoreString); }
         set
         {
             _scoreString = value;
@@ -39,9 +39,9 @@ public class ScoreBoard : MonoBehaviour
         }
     }
 
-    private void Awake()
+    void Awake()
     {
-        if(S == null)
+        if (S == null)
         {
             S = this;
         }
@@ -55,7 +55,17 @@ public class ScoreBoard : MonoBehaviour
     // Когда вызывается методом SendMessage, прибавляет fs.score к this.score
     public void FSCallBack(FloatingScore fs)
     {
-        score += fs.score;
+        if (Prospector.wasUndoFs)
+        {
+            score += (fs.score - ScoreManager.SCORE_DELTA);
+            Prospector.wasUndoFs = false;
+        }
+        else
+        {
+            score += fs.score;
+        }
+
+        print("Float result: " + score + " fs.score: " + fs.score);
     }
 
     // Создает и инициализирует новый игровой объект FloatingScore

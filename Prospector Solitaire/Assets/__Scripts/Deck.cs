@@ -1,8 +1,8 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 using System.Globalization;
 using System.Xml;
+using UnityEngine;
 
 public class Deck : MonoBehaviour
 {
@@ -18,9 +18,7 @@ public class Deck : MonoBehaviour
     public Sprite[] rankSprites;
 
     public Sprite cardBack;
-    public Sprite cardBackGold;
     public Sprite cardFront;
-    public Sprite cardFrontGold;
 
     // Шаблоны
     public GameObject prefabCard;
@@ -33,13 +31,13 @@ public class Deck : MonoBehaviour
     public List<Decorator> decorators;
     public List<CardDefinition> cardDefs;
     public Transform deckAnchor;
-    public Dictionary<string,Sprite> dictSuits;
+    public Dictionary<string, Sprite> dictSuits;
 
     // InitDeck вызывается экземпляром Prospector, когда будет готов
     public void InitDeck(string deckXMLText)
     {
         // Создать точку привязки для всех игровых объектов Card в иерархии
-        if(GameObject.Find("_Deck") == null)
+        if (GameObject.Find("_Deck") == null)
         {
             GameObject anchorGO = new GameObject("_Deck");
             deckAnchor = anchorGO.transform;
@@ -53,7 +51,7 @@ public class Deck : MonoBehaviour
             {"H", suitHeart},
             {"S", suitSpade}
         };
-        
+
         ReadDeck(deckXMLText);
         MakeCards();
     }
@@ -70,14 +68,13 @@ public class Deck : MonoBehaviour
         s += " x=" + xmlr.xml["xml"][0]["decorator"][0].att("x");
         s += " y=" + xmlr.xml["xml"][0]["decorator"][0].att("y");
         s += " scale=" + xmlr.xml["xml"][0]["decorator"][0].att("scale");
-        //print(s);
-        
+
         // Прочитать элементы <decorator> для всех карт
         decorators = new List<Decorator>(); // инициализировать список экземпляров Decorator
-        // Извлечь список PT_XMLHashList всех элементов <decorator> из XML-файла
+        // �?звлечь список PT_XMLHashList всех элементов <decorator> из XML-файла
         PT_XMLHashList xDecos = xmlr.xml["xml"][0]["decorator"];
         Decorator deco;
-        for(int i=0; i<xDecos.Count; i++)
+        for (int i = 0; i < xDecos.Count; i++)
         {
             // Для каждого элемента <decorator> в XML
             deco = new Decorator(); // создать экземпляр Decorator
@@ -99,7 +96,7 @@ public class Deck : MonoBehaviour
         cardDefs = new List<CardDefinition>(); // инициализировать список карт
         // Извлечь список PT_XMLHashList всех элементов <card> из XML-файла
         PT_XMLHashList xCardDefs = xmlr.xml["xml"][0]["card"];
-        for(int i=0; i<xCardDefs.Count; i++)
+        for (int i = 0; i < xCardDefs.Count; i++)
         {
             // Для каждого элемента <card> создать экземпляр CardDefinition
             CardDefinition cDef = new CardDefinition();
@@ -107,9 +104,9 @@ public class Deck : MonoBehaviour
             cDef.rank = int.Parse(xCardDefs[i].att("rank"));
             // Извлечь список PT_XMLHashList всех элементов <pip> внутри этого элемента <card>
             PT_XMLHashList xPips = xCardDefs[i]["pip"];
-            if(xPips != null)
+            if (xPips != null)
             {
-                for(int j=0; j<xPips.Count; j++)
+                for (int j = 0; j < xPips.Count; j++)
                 {
                     // Обойти все элементы <pip>
                     deco = new Decorator();
@@ -119,7 +116,7 @@ public class Deck : MonoBehaviour
                     deco.loc.x = float.Parse(xPips[j].att("x"), CultureInfo.InvariantCulture);
                     deco.loc.y = float.Parse(xPips[j].att("y"), CultureInfo.InvariantCulture);
                     deco.loc.z = float.Parse(xPips[j].att("z"), CultureInfo.InvariantCulture);
-                    if(xPips[j].HasAtt("scale"))
+                    if (xPips[j].HasAtt("scale"))
                     {
                         deco.scale = float.Parse(xPips[j].att("scale"), CultureInfo.InvariantCulture);
                     }
@@ -127,7 +124,7 @@ public class Deck : MonoBehaviour
                 }
             }
             // Карты с картинками (Валет, Дама и Король) имеют атрибут face
-            if(xCardDefs[i].HasAtt("face"))
+            if (xCardDefs[i].HasAtt("face"))
             {
                 cDef.face = xCardDefs[i].att("face");
             }
@@ -139,10 +136,10 @@ public class Deck : MonoBehaviour
     public CardDefinition GetCardDefinitionByRank(int rnk)
     {
         // Поиск во всех определениях CardDefinition
-        foreach(CardDefinition cd in cardDefs)
+        foreach (CardDefinition cd in cardDefs)
         {
             // Если достоиство совпадает, вернуть это определение
-            if(cd.rank == rnk)
+            if (cd.rank == rnk)
             {
                 return (cd);
             }
@@ -157,9 +154,9 @@ public class Deck : MonoBehaviour
         // Каждая масть имеет 14 значений достоинства (например для треф (Clubs): от С1 до С14)
         cardNames = new List<string>();
         string[] letters = new string[] { "C", "D", "H", "S" };
-        foreach(string s in letters)
+        foreach (string s in letters)
         {
-            for(int i=0; i<13; i++)
+            for (int i = 0; i < 13; i++)
             {
                 cardNames.Add(s + (i + 1));
             }
@@ -169,7 +166,7 @@ public class Deck : MonoBehaviour
         cards = new List<Card>();
 
         // Обойти все только что созданные имена карт
-        for(int i=0; i<cardNames.Count; i++)
+        for (int i = 0; i < cardNames.Count; i++)
         {
             // Создать карты и добавить ее в колоду
             cards.Add(MakeCard(i));
@@ -181,9 +178,9 @@ public class Deck : MonoBehaviour
         // Создать новый игровой объект с картой
         GameObject cgo = Instantiate(prefabCard) as GameObject;
         // Задать вероятность появления золотой карты
-        bool isGold = Random.value <= 0.1f;
+        bool isGold = false;
         // Выбор первичной обложки карты
-        cgo.GetComponent<SpriteRenderer>().sprite = isGold ? cardFrontGold : cardFront;
+        cgo.GetComponent<SpriteRenderer>().sprite = cardFront;
         // Настроить transform.parent новой карты в соответствии с точкой привязки
         cgo.transform.parent = deckAnchor;
         Card card = cgo.GetComponent<Card>(); // получить компонент Card
@@ -196,7 +193,7 @@ public class Deck : MonoBehaviour
         card.suit = card.name[0].ToString();
         card.rank = int.Parse(card.name.Substring(1));
         card.isGold = isGold;
-        if(card.suit == "D" || card.suit == "H")
+        if (card.suit == "D" || card.suit == "H")
         {
             card.colS = "Red";
             card.color = Color.red;
@@ -220,9 +217,9 @@ public class Deck : MonoBehaviour
     private void AddDecorators(Card card)
     {
         // Добавить оформление
-        foreach(Decorator deco in decorators)
+        foreach (Decorator deco in decorators)
         {
-            if(deco.type == "suit")
+            if (deco.type == "suit")
             {
                 // Создать экземпляр игрового объекта спрайта
                 _tGO = Instantiate(prefabSprite) as GameObject;
@@ -255,7 +252,7 @@ public class Deck : MonoBehaviour
                 _tGO.transform.rotation = Quaternion.Euler(0, 0, 180);
             }
             // Установить масштаб, чтобы уменьшить размер спрайта
-            if(deco.scale != 1)
+            if (deco.scale != 1)
             {
                 _tGO.transform.localScale = Vector3.one * deco.scale;
             }
@@ -269,7 +266,7 @@ public class Deck : MonoBehaviour
     private void AddPips(Card card)
     {
         // Для каждого значка в определении...
-        foreach(Decorator pip in card.def.pips)
+        foreach (Decorator pip in card.def.pips)
         {
             // ...создать новый объект спрайта
             _tGO = Instantiate(prefabSprite) as GameObject;
@@ -283,7 +280,7 @@ public class Deck : MonoBehaviour
                 _tGO.transform.rotation = Quaternion.Euler(0, 0, 180);
             }
             // Масштабировать, если необходимо
-            if(pip.scale != 1)
+            if (pip.scale != 1)
             {
                 _tGO.transform.localScale = Vector3.one * pip.scale;
             }
@@ -302,7 +299,7 @@ public class Deck : MonoBehaviour
 
     private void AddFace(Card card)
     {
-        if(card.def.face == "")
+        if (card.def.face == "")
         {
             return; // выйти, если это не карта с картинкой
         }
@@ -321,10 +318,10 @@ public class Deck : MonoBehaviour
     // Находит спрайт с картинкой для карты
     private Sprite GetFace(string faceS)
     {
-        foreach(Sprite _tSP in faceSprites)
+        foreach (Sprite _tSP in faceSprites)
         {
             // Если найден спрайт с требуемым именем...
-            if(_tSP.name == faceS)
+            if (_tSP.name == faceS)
             {
                 // ...вернуть его
                 return (_tSP);
@@ -340,7 +337,7 @@ public class Deck : MonoBehaviour
         // Card_Back будет показывать все остальное на карте
         _tGO = Instantiate(prefabSprite) as GameObject;
         _tSR = _tGO.GetComponent<SpriteRenderer>();
-        _tSR.sprite = isGold ? cardBackGold : cardBack;
+        _tSR.sprite = cardBack;
 
         _tGO.transform.SetParent(card.transform);
         _tGO.transform.localPosition = Vector3.zero;
@@ -351,7 +348,7 @@ public class Deck : MonoBehaviour
         card.back = _tGO;
 
         // По умолчанию картинкой вверх
-        card.faceUp = startFaceUp; // Использовать свойство faceUp карты
+        card.faceUp = startFaceUp; // использовать свойство faceUp карты
     }
 
     // Перемешивает карты в Deck.cards
@@ -363,7 +360,7 @@ public class Deck : MonoBehaviour
         int ndx; // будет хранить индекс перемещаемой карты
         tCards = new List<Card>(); // инициализировать временный список
         // Повторять, пока не будут перемещены все карты в исходном списке
-        while(oCards.Count > 0)
+        while (oCards.Count > 0)
         {
             // Выбрать случайный индекс карты
             ndx = Random.Range(0, oCards.Count);
@@ -376,5 +373,12 @@ public class Deck : MonoBehaviour
         oCards = tCards;
         // Так как oCards - это параметр-ссылка (ref), оригинальный аргумент,
         // переданный в метод, тоже изменится.
+        for (int i = 0; i < 28; i++)
+        {
+            if (Random.value <= 0.1f)
+            {
+                tCards[i].isGold = true;
+            }
+        }
     }
 }

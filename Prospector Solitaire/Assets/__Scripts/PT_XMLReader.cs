@@ -2,44 +2,11 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 
-
-/*
-<xml>
-	<jeremy age="36">
-		<friend name="Harrison">
-			"Hello"
-		</friend>
-	</jeremy>
-</xml>
-
-
-XMLHashtable xml;
-xml["jeremy"][0]["friend"][0].text
-xml["jeremy"][0].att("age");
-*/
-		
-
-
 [System.Serializable]
 public class PT_XMLReader {
 	static public bool		SHOW_COMMENTS = false;
-
-	//public string input;
-	//public TextAsset inputTA;
 	public string xmlText;
 	public PT_XMLHashtable xml;
-	
-	/*
-	void Awake() {
-		inputTA = Resources.Load("WellFormedSample") as TextAsset;	
-		input = inputTA.text;
-		print(input);
-		output = new XMLHashtable();
-		Parse(input, output);
-		// TODO: Make something which will trace a Hashtable or output it as XML
-		print(output["videocollection"][0]["video"][1]["title"][0].text);
-	}
-	*/
 	
 	// This function creates a new XMLHashtable and calls the real Parse()
 	public void Parse(string eS) {
@@ -292,8 +259,7 @@ public class PT_XMLHashtable {
 			}
 		}
 	}
-	
-	
+		
 	public string header {
 		get {
 			int ndx = AttIndex("@XML_Header");
@@ -310,7 +276,6 @@ public class PT_XMLHashtable {
 			}
 		}
 	}
-	
 	
 	public string nodes {
 		get {
@@ -347,67 +312,6 @@ public class PT_XMLHashtable {
 	public bool HasAtt(string attKey) {
 		return( AttIndex(attKey) != -1 );
 	}
-	
 }
-
-/* Old XMLHashtable Class
-
-public class XMLHashtable {
-	
-	private Hashtable hash = new Hashtable();
-	
-	public XMLArrayList this[string s] {
-		get {
-			return(hash[s] as XMLArrayList);
-		}
-		set {
-			hash[s] = value;
-		}
-	}
-	
-	public string att(string s) {
-		return(hash["@"+s] as string);
-	}
-	
-	public void attSet(string s, string v) {
-		hash["@"+s] = v;
-	}
-	
-	public string text {
-		get {
-			return(hash["@"] as string);
-		}
-		set {
-			hash["@"] = value;
-		}
-	}
-	
-	public string header {
-		get {
-			return(hash["@XML_Header"] as string);
-		}
-		set {
-			hash["@XML_Header"] = value;
-		}
-	}
-	
-	public bool ContainsKey(string tag) {
-		return(hash.ContainsKey(tag));
-	}
-	
-}
-
-*/
-
-
-/*
-
-1. look for <
-2. look for next >
-3. look for / before the >
-
-
-
-*/
 						
 						

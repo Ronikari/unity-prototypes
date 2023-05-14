@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -60,7 +60,7 @@ public class FloatingScore : MonoBehaviour
 
         bezierPts = new List<Vector2>(ePts);
 
-        if(ePts.Count == 1)
+        if (ePts.Count == 1)
         {
             // Если задана только одна точка - переместиться в нее
             transform.position = ePts[0];
@@ -82,7 +82,7 @@ public class FloatingScore : MonoBehaviour
         score += fs.score;
     }
 
-    private void Update()
+    void Update()
     {
         // Если объект никуда не перемещается, просто выйти
         if (state == eFSState.idle) return;
@@ -92,7 +92,7 @@ public class FloatingScore : MonoBehaviour
         float u = (Time.time - timeStart) / timeDuration;
         // Использовать класс Easing из Utils для корректировки значения u
         float uC = Easing.Ease(u, easingCurve);
-        if(u < 0)
+        if (u < 0)
         {
             // Если u < 0, объект не должен двигаться
             state = eFSState.pre;
@@ -100,12 +100,12 @@ public class FloatingScore : MonoBehaviour
         }
         else
         {
-            if(u >= 1)
+            if (u >= 1)
             {
                 // Если u >= 1, выполняется движение
                 // Установить uC = 1, чтобы не выйти за крайнюю точку
                 state = eFSState.post;
-                if(reportFinishTo != null)
+                if (reportFinishTo != null)
                 {
                     // Если игровой объект указан
                     // Использовать SendMessage для вызова метода FSCallBack и передачи
@@ -133,7 +133,7 @@ public class FloatingScore : MonoBehaviour
             // Опорные точки RectTransform можно использовать для позиционирования объектов
             // пользовательского интерфейса относительно общего размера экрана
             rectTrans.anchorMin = rectTrans.anchorMax = pos;
-            if(fontSizes != null && fontSizes.Count > 0)
+            if (fontSizes != null && fontSizes.Count > 0)
             {
                 // Если список fontSizes содержит значения
                 // Скорректировать fontSize этого объекта GUIText

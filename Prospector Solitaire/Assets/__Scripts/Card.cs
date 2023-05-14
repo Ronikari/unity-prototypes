@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -24,7 +24,7 @@ public class Card : MonoBehaviour
     // Реализация золотых карт
     public bool isGold;
 
-    private void Start()
+    void Start()
     {
         SetSortOrder(0); // обеспечит правильную сортировку карт
     }
