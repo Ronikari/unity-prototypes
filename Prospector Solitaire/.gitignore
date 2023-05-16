@@ -99,3 +99,5 @@ crashlytics-build.properties
 
 *.unity
 *.unity.meta
+
+*.DS_Store
